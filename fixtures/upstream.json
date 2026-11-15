@@ -1,0 +1,34 @@
+{
+  "catalog": {
+    "entry": "/metadata",
+    "base": "/",
+    "scope": "campus-exchange"
+  },
+  "resources": {
+    "/primary": {
+      "file": "primary.bin",
+      "type": "text/csv"
+    },
+    "/metadata": {
+      "file": "resource-01.bin",
+      "type": "application/json"
+    },
+    "/tables/campuses.csv": {
+      "file": "resource-02.bin",
+      "type": "text/csv"
+    },
+    "/tables/projects.csv": {
+      "file": "resource-03.bin",
+      "type": "text/csv",
+      "phases": {
+        "1": {
+          "status": 503
+        },
+        "2": {
+          "file": null,
+          "body": "id,campus,country\np1,c1,CN\np1,c1,CN\n"
+        }
+      }
+    }
+  }
+}

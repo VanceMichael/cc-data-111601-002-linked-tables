@@ -2,7 +2,7 @@
 
 ## 产品交换范围
 
-交换范围是 CSVW table group 的 url、tableSchema.columns、primaryKey、foreignKeys、columnReference/reference.resource；不要求完整 JSON-LD 展开。相对表 URL 以元数据资源 URL 为基准，foreign key 的 resource 以所在表 URL 为基准。单列和数组形式均合法，null 标记在列上声明，未声明则空字符串是字符串。复合引用中有任一允许 null 的分量为 null 时不产生引用；其他缺值、重复主键和悬空引用分别保留。外键两端保留列序及文本值，不要求类型自动推断。阶段 1 projects.csv 不可达，阶段 2 提供重复键，循环 campus/project 是合法引用图，不是重复记录。单表读取结果保留原列和行位置。
+交换范围是 CSVW table group 的 url、tableSchema.columns、primaryKey、foreignKeys、columnReference/reference.resource；不要求完整 JSON-LD 展开。相对 URL 依所在元数据对象的有效 base 解析，本样例未使用 @base，均以 /metadata 的 URL 为 base；资源自身的相对链接则以实际资源 URL 为基准。单列和数组形式均合法。列 null 声明覆盖继承值，未声明时依 CSVW 默认为空字符串；显式 null=[] 则空字符串不作为 null。复合引用中有任一允许 null 的分量为 null 时不产生引用；其他缺值、重复主键和悬空引用分别保留。外键两端保留列序及文本值，不要求类型自动推断。阶段 1 projects.csv 不可达，阶段 2 提供重复键，循环 campus/project 是合法引用图，不是重复记录。现有单表读取结果保留原始列和行文本，语义 null 在关联接收层解释。
 
 ## 当前来源路由
 

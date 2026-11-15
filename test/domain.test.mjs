@@ -20,5 +20,5 @@ test('引号内换行和重复值保留',()=>{
 test('本地表组真实包含复合循环引用',async()=>{
   const metadata=JSON.parse(await resource('/metadata'));
   assert.equal(metadata.tables[1].tableSchema.primaryKey.length,2);
-  assert.equal(metadata.tables[2].tableSchema.foreignKeys[0].reference.resource,'campuses.csv');
+  assert.equal(metadata.tables[2].tableSchema.foreignKeys[0].reference.resource,'tables/campuses.csv');
 });

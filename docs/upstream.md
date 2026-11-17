@@ -7,11 +7,25 @@
 ## 当前来源路由
 
 - `/primary`：text/csv
-- `/metadata`：application/json
+- `/metadata`：application/json（CSVW table group；同时是产品表组入口）
 - `/tables/campuses.csv`：text/csv
 - `/tables/projects.csv`：text/csv
 
 `/catalog` 提供入口及业务选择。资源字节支持 GET/HEAD、单一 bytes 范围、ETag 和 If-Match，响应不会跨来源重定向。`/_phase` 为联调控制路径，不是产品数据来源，不应由产品自行切换阶段。
+
+## 表组领取约定
+
+产品从 `/metadata` 领取整组：先解析 `tables[].url`、`tableSchema.columns`、`primaryKey`、`foreignKeys`，再按 URL 去重领取每个成员。声明表之外的引用目标按隐含成员跟随；引用图允许循环，visited 集合保证 campus ↔ project 只请求一次。
+
+每个成员按以下顺序判定：
+
+1. 来源不可达（HTTP 非 2xx、超时、越界）→ 成员 `unavailable`，引用 `pending/reference_unavailable`。
+2. 原件结构不可读（空文件、引号未闭合、列数不齐、重复表头、声明列缺失）→ 成员 `invalid`，引用 `metadata/reference_member_invalid`；不写回空表。
+3. 可达且结构可读 → 逐行检查外键与主键。
+
+外键键值为两侧列的文本值，保留列序；不要求类型推断。`null` 解析优先级为列 > tableSchema > table > 表组，未声明时默认 `[""]`；显式 `null: []` 表示空字符串不是 null。复合键中任一允许为 null 的分量为 null 时，记录 `null_component` 且不产生引用，也不阻塞该行。非 null 但目标无行是 `dangling_reference`，目标同键多行是 `ambiguous_reference`。主键在非 null 分量上判重；重复整行只作 `duplicate_row` 警告，仍按原行号保留。
+
+交付结果的 `state` 描述领取完整性，`delivery.status` 描述逐行可交付性；两者独立，避免把“缺表”与“数据错”混为一谈。
 
 ## 依据和范围说明
 

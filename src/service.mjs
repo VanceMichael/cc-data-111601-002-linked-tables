@@ -3,6 +3,18 @@ import { fileURLToPath } from 'node:url';
 import { Store } from './store.mjs';
 import { acquire } from './transport.mjs';
 import { inspect } from './reader.mjs';
+import { courierTableGroup } from './courier.mjs';
+import { looksLikeTableMetadata } from './group.mjs';
+
+async function body(request, limit = 16384) {
+  const chunks = []; let length = 0;
+  for await (const chunk of request) {
+    length += chunk.length;
+    if (length > limit) throw new Error('request_too_large');
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks);
+}
 
 export async function startService({ source, directory, port = 0 }) {
   const store = await new Store(directory).initialize();
@@ -16,20 +28,42 @@ export async function startService({ source, directory, port = 0 }) {
         response.setHeader('Content-Type', 'application/octet-stream');
         return response.end(await store.object(url.pathname.slice(9)));
       }
+      if (url.pathname.startsWith('/groups/') && request.method === 'GET') {
+        return response.end(JSON.stringify(await store.group(url.pathname.slice(8))));
+      }
       if (url.pathname === '/intakes' && request.method === 'POST') {
-        const chunks = []; let length = 0;
-        for await (const chunk of request) {
-          length += chunk.length;
-          if (length > 16384) throw new Error('request_too_large');
-          chunks.push(chunk);
-        }
-        const payload = JSON.parse(Buffer.concat(chunks).toString());
+        const payload = JSON.parse((await body(request)).toString());
         if (typeof payload.path !== 'string') throw new Error('path_required');
         const result = await acquire(source, payload.path);
+        if (looksLikeTableMetadata(result.bytes)) {
+          // A table group is obtained through the same intake entry: one path
+          // in, a complete group with its members and per-row delivery state.
+          const grouped = await courierTableGroup({
+            source, path: payload.path, bytes: result.bytes,
+            metadataUrl: new URL(payload.path, source).href,
+          });
+          const record = await store.acceptGroup(grouped);
+          response.statusCode = 201;
+          return response.end(JSON.stringify(record));
+        }
         const parsed = inspect(result.bytes);
         const record = await store.accept(result.bytes, new URL(payload.path, source).href, parsed);
         response.statusCode = 201;
         return response.end(JSON.stringify(record));
+      }
+      if (url.pathname === '/group-intakes' && request.method === 'POST') {
+        const payload = JSON.parse((await body(request)).toString());
+        if (typeof payload.path !== 'string') throw new Error('path_required');
+        const result = await courierTableGroup({ source, path: payload.path });
+        const record = await store.acceptGroup(result);
+        response.statusCode = 201;
+        return response.end(JSON.stringify(record));
+      }
+      if (url.pathname === '/deliveries' && request.method === 'GET') {
+        return response.end(JSON.stringify({
+          groups: await store.deliveries(),
+          pending: await store.pendingDeliveries(),
+        }));
       }
       response.writeHead(404); response.end(JSON.stringify({ error: 'not_found' }));
     } catch (error) { response.statusCode = 422; response.end(JSON.stringify({ error: error.message })); }
